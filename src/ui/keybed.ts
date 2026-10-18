@@ -25,22 +25,28 @@ const KEYMAP: Record<string, number> = {
 export function buildKeybed(container: HTMLElement, marx: MarxophoneEngine): void {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <h2>MARXOPHONE</h2>
-    <p class="sub">Hammer-strike additive voice — saw + 2.001x triangle shimmer + 3.98x chime,
+    <h2>Marxophone</h2>
+    <p class="sub">Hammer-strike additive voice: saw + 2.001x triangle shimmer + 3.98x chime,
     bandpassed noise transient, body-filter sweep, tube warmth.</p>
-    <div class="controls">
-      <div class="control"><label>TUNING SYSTEM</label><select data-k="tuning"></select></div>
-      <div class="control"><label>CENTS OFFSET <b data-k="centsVal">+0</b></label>
-        <input data-k="cents" type="range" min="-100" max="100" value="0"></div>
-      <div class="control"><label>DECAY <b data-k="decayVal">0.70 s</b></label>
-        <input data-k="decay" type="range" min="20" max="200" value="70"></div>
-      <div class="control"><label>SPRING-HAMMER BOUNCE</label>
-        <div class="row"><button data-k="bounce">Off</button>
-        <input data-k="bounceRate" type="range" min="10" max="22" value="14" title="Bounce rate Hz"></div>
+    <div class="sec">
+      <div class="sec-title">Voice</div>
+      <div class="controls">
+        <div class="control"><label>Tuning system</label><select data-k="tuning"></select></div>
+        <div class="control"><label>Cents offset <b data-k="centsVal">+0</b></label>
+          <input data-k="cents" type="range" min="-100" max="100" value="0"></div>
+        <div class="control"><label>Decay <b data-k="decayVal">0.70 s</b></label>
+          <input data-k="decay" type="range" min="20" max="200" value="70"></div>
+        <div class="control"><label>Spring-hammer bounce</label>
+          <div class="row"><button data-k="bounce">Off</button>
+          <input data-k="bounceRate" type="range" min="10" max="22" value="14" title="Bounce rate Hz"></div>
+        </div>
       </div>
     </div>
-    <div class="keybed" data-k="bed"></div>
-    <p class="kbd-hint">Keys A W S E D F T G Y H U J K play C4–C5 · click or tap the keys · octave C4–B5</p>
+    <div class="sec">
+      <div class="sec-title">Keyboard <span class="kbd-hint">tap the keys · octave C4–B5</span></div>
+      <div class="keybed" data-k="bed"></div>
+      <p class="kbd-hint">Computer keys A W S E D F T G Y H U J K play C4–C5</p>
+    </div>
   `;
   container.appendChild(wrap);
   const q = <T extends HTMLElement>(k: string): T => {

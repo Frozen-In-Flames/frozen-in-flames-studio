@@ -59,22 +59,22 @@ export function buildTransport(
   const wrap = document.createElement('div');
   wrap.className = 'transport';
   wrap.innerHTML = `
-    <div class="group">
+    <div class="t-play">
       <button class="primary" data-k="play">Play</button>
       <button data-k="stop">Stop</button>
     </div>
-    <div class="group"><label>BPM</label>
-      <input data-k="bpm" type="range" min="60" max="180" value="140" style="accent-color:#58a6ff">
+    <div class="t-group"><label>Tempo</label>
+      <input data-k="bpm" type="range" min="60" max="180" value="140">
       <label data-k="bpmVal">140</label></div>
-    <div class="group"><label>PATTERN</label><select data-k="pattern">
+    <div class="t-group"><label>Pattern</label><select data-k="pattern">
       <option value="bass">808 Bass</option>
       <option value="drums">Drums</option>
       <option value="melody">Marxophone Melody</option>
       <option value="chords">Marxophone Chords</option>
       <option value="full" selected>Full mix</option>
     </select></div>
-    <div class="playhead" data-k="playhead"></div>
-    <div class="perf" data-k="perf">scheduler: — ms/step</div>
+    <div class="playhead" data-k="playhead" aria-hidden="true"></div>
+    <div class="perf" data-k="perf">scheduler: -- ms/step</div>
   `;
   container.appendChild(wrap);
   const q = <T extends HTMLElement>(k: string): T => {
@@ -209,22 +209,28 @@ export function buildMidiPanel(container: HTMLElement, deps: MidiPanelDeps): voi
   const { marx, getBpm } = deps;
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <h2>MIDI &amp; EXPORT</h2>
+    <h2>MIDI and Export</h2>
     <p class="sub">Import a Standard MIDI File and play it through the marxophone,
     or export your work as MIDI / 32-bit WAV.</p>
-    <div class="row">
-      <label class="stem-tag">Import .mid <input data-k="file" type="file" accept=".mid,.midi" style="display:none"></label>
-      <button data-k="playImp" disabled>Play imported</button>
-      <button data-k="stopImp" disabled>Stop</button>
-      <span data-k="info" style="font-size:12px;color:#8b949e"></span>
+    <div class="sec">
+      <div class="sec-title">Import</div>
+      <div class="row">
+        <label class="stem-tag">Import .mid <input data-k="file" type="file" accept=".mid,.midi" style="display:none"></label>
+        <button data-k="playImp" disabled>Play imported</button>
+        <button data-k="stopImp" disabled>Stop</button>
+      </div>
+      <p class="sub" data-k="info" style="margin:0"></p>
     </div>
-    <div class="row">
-      <button data-k="expBass">Export bass pattern (.mid)</button>
-      <button data-k="expWav">Render mix to 32-bit WAV (offline)</button>
-      <span data-k="wavInfo" style="font-size:12px;color:#8b949e"></span>
+    <div class="sec">
+      <div class="sec-title">Export</div>
+      <div class="row">
+        <button data-k="expBass">Export bass pattern (.mid)</button>
+        <button data-k="expWav">Render mix to 32-bit WAV (offline)</button>
+      </div>
+      <p class="sub" data-k="wavInfo" style="margin:0"></p>
     </div>
     <p class="note">WAV export renders the full-mix demo (808 bass + drums + marxophone melody)
-    with an <code>OfflineAudioContext</code> — faster than real time — then peak-normalizes
+    with an <code>OfflineAudioContext</code>, faster than real time, then peak-normalizes
     with a silence guard and writes 32-bit float WAV.</p>
   `;
   container.appendChild(wrap);
@@ -347,7 +353,7 @@ export function buildMidiPanel(container: HTMLElement, deps: MidiPanelDeps): voi
         }
       });
       downloadBlob(new Blob([wav], { type: 'audio/wav' }), 'frozen-in-flames-mix.wav');
-      wavInfo.textContent = `Done — ${(wav.length / 1024).toFixed(0)} KB, 32-bit float, ${sampleRate} Hz.`;
+      wavInfo.textContent = `Done: ${(wav.length / 1024).toFixed(0)} KB, 32-bit float, ${sampleRate} Hz.`;
     } catch (err) {
       wavInfo.textContent = `Render failed: ${(err as Error).message}`;
     }

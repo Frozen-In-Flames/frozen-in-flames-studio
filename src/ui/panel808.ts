@@ -19,34 +19,42 @@ export function build808Panel(container: HTMLElement, kit: EightOhEight): EightO
   const params: EightOhEightParams = { note: 36, bpm: 140, startCutoff: 40, resonance: 64 };
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <h2>808 STUDIO</h2>
+    <h2>808 Studio</h2>
     <p class="sub">Sub-bass voice with 16-step filter sweep. Cutoff is honest Hz;
     MIDI export scales the sweep to CC74 as <code>round(127·(Hz−20)/1180)</code>.
     The 808 runs through a 90 Hz Linkwitz-Riley crossover (lows mono, highs stereo)
     and a kick-triggered sidechain duck.</p>
-    <div class="controls">
-      <div class="control"><label>ROOT NOTE <b data-k="noteVal">C1 (36)</b></label>
-        <input data-k="note" type="range" min="24" max="48" value="36"></div>
-      <div class="control"><label>BPM <b data-k="bpmVal">140</b></label>
-        <input data-k="bpm" type="range" min="60" max="180" value="140"></div>
-      <div class="control"><label>SWEEP START CUTOFF <b data-k="cutVal">40 Hz</b></label>
-        <input data-k="cutoff" type="range" min="20" max="200" value="40"></div>
-      <div class="control"><label>RESONANCE → Q <b data-k="resVal">6.4</b></label>
-        <input data-k="res" type="range" min="10" max="127" value="64"></div>
-      <div class="control"><label>SIDECHAIN DUCK <b data-k="scVal">50%</b></label>
-        <input data-k="sidechain" type="range" min="0" max="100" value="50"></div>
+    <div class="sec">
+      <div class="sec-title">Voice</div>
+      <div class="controls">
+        <div class="control"><label>Root note <b data-k="noteVal">C1 (36)</b></label>
+          <input data-k="note" type="range" min="24" max="48" value="36"></div>
+        <div class="control"><label>BPM <b data-k="bpmVal">140</b></label>
+          <input data-k="bpm" type="range" min="60" max="180" value="140"></div>
+        <div class="control"><label>Sweep start cutoff <b data-k="cutVal">40 Hz</b></label>
+          <input data-k="cutoff" type="range" min="20" max="200" value="40"></div>
+        <div class="control"><label>Resonance to Q <b data-k="resVal">6.4</b></label>
+          <input data-k="res" type="range" min="10" max="127" value="64"></div>
+        <div class="control"><label>Sidechain duck <b data-k="scVal">50%</b></label>
+          <input data-k="sidechain" type="range" min="0" max="100" value="50"></div>
+      </div>
     </div>
-    <div class="row">
-      <button class="primary" data-k="sweep">Trigger 808 Sweep</button>
-      <button data-k="stop">Stop</button>
-      <button data-k="kick">Kick</button>
-      <button data-k="snare">Snare</button>
-      <button data-k="hat">Hat</button>
-      <button data-k="mid">Export sweep as .mid</button>
+    <div class="sec">
+      <div class="sec-title">Trigger pads</div>
+      <div class="pad-grid">
+        <button class="primary" data-k="sweep">Trigger 808 Sweep</button>
+        <button data-k="kick">Kick</button>
+        <button data-k="snare">Snare</button>
+        <button data-k="hat">Hat</button>
+        <button data-k="stop">Stop</button>
+        <button data-k="mid">Export sweep .mid</button>
+      </div>
     </div>
-    <h2 style="margin-top:18px">AUTOMATION CURVE</h2>
-    <p class="sub">16 steps, start Hz → 1200 Hz over 4 bars.</p>
-    <canvas class="frame" data-k="curve" width="640" height="180"></canvas>
+    <div class="sec">
+      <div class="sec-title">Automation curve</div>
+      <p class="sub">16 steps, start Hz to 1200 Hz over 4 bars.</p>
+      <canvas class="frame" data-k="curve" width="640" height="180"></canvas>
+    </div>
   `;
   container.appendChild(wrap);
   const q = <T extends HTMLElement>(k: string): T => {

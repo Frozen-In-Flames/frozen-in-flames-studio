@@ -79,7 +79,7 @@ async function boot(): Promise<void> {
   // --- visuals ---
   const renderer = new FrozenFlamesRenderer(el<HTMLCanvasElement>('visuals'));
   renderer.start(engine.analyser);
-  el('visualStatus').textContent = 'Visual field live — analyser-reactive, stereo only.';
+  el('visualStatus').textContent = 'Visual field live: analyser-reactive, stereo only.';
 
   // Apply the master-volume slider's current value.
   engine.setMasterVolume(parseInt(el<HTMLInputElement>('masterVol').value, 10) / 100);

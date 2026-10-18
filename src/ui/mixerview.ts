@@ -45,18 +45,21 @@ export function buildMixerView(
 
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <h2>SPATIAL MIXER</h2>
-    <p class="sub">Stereo field: drag stems. X = pan, Z (depth slider) = distance —
-    gain, lowpass and reverb send follow. Honest stereo; no surround processing.</p>
-    <div class="row">
-      <select data-k="preset"></select>
-      <button data-k="scatter">Auto-scatter</button>
-      <button data-k="mask">Auto-mask</button>
-      <select data-k="addCat"></select>
-      <button data-k="add">Add stem</button>
+    <h2>Spatial Mixer</h2>
+    <p class="sub">Stereo field: drag stems. X = pan, Z (depth slider) = distance: gain, lowpass and reverb send follow. Honest stereo; no surround processing.</p>
+    <div class="sec">
+      <div class="sec-title">Stems</div>
+      <div class="row">
+        <select data-k="preset" aria-label="Spatial preset"></select>
+        <button data-k="scatter">Auto-scatter</button>
+        <button data-k="mask">Auto-mask</button>
+        <select data-k="addCat" aria-label="New stem category"></select>
+        <button data-k="add">Add stem</button>
+      </div>
     </div>
     <div class="mixer-layout">
-      <div>
+      <div class="sec">
+        <div class="sec-title">Field</div>
         <canvas class="frame" data-k="field" width="${FIELD_W}" height="${FIELD_H}"></canvas>
         <div data-k="collisions"></div>
       </div>
@@ -216,7 +219,7 @@ export function buildMixerView(
     box.innerHTML = '';
     const cols = detectCollisions(stems);
     if (cols.length === 0) {
-      box.innerHTML = '<p class="note">No stem collisions — the field is clear.</p>';
+      box.innerHTML = '<p class="note">No stem collisions. The field is clear.</p>';
       return;
     }
     for (const c of cols.slice(0, 6)) {
@@ -225,7 +228,7 @@ export function buildMixerView(
       const div = document.createElement('div');
       div.className = 'collision';
       div.innerHTML =
-        `<b>${a?.name ?? c.a}</b> × <b>${b?.name ?? c.b}</b> — ${c.zone} ` +
+        `<b>${a?.name ?? c.a}</b> × <b>${b?.name ?? c.b}</b> (${c.zone}) ` +
         `(severity ${(c.severity * 100).toFixed(0)}%) ` +
         `<span class="sev" style="width:${(c.severity * 120).toFixed(0)}px"></span>`;
       box.appendChild(div);
@@ -260,7 +263,7 @@ export function buildMixerView(
     box.innerHTML = '';
     const s = stems.find((x) => x.id === selected);
     const title = document.createElement('h3');
-    title.textContent = s ? `Inspector — ${s.name}` : 'Inspector';
+    title.textContent = s ? `Inspector: ${s.name}` : 'Inspector';
     box.appendChild(title);
     if (!s) {
       box.appendChild(document.createTextNode('Select a stem in the field.'));
