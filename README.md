@@ -2,6 +2,10 @@
 
 **Frozen In Flames — Lucid Triangulation Records** · © 2026 Aries Hilton · Apache-2.0
 
+## Live demonstration
+
+- [Frozen In Flames Studio](https://huggingface.co/spaces/AriesHilton/frozen-in-flames-studio): the full studio, running as a Hugging Face Space.
+
 A browser-based music studio built with TypeScript, Vite, native Web Audio, and
 hand-written CSS. Zero runtime dependencies.
 
