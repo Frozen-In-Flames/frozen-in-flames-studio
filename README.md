@@ -4,6 +4,7 @@
 
 ## Live demonstration
 
+- [Frozen In Flames Studio](https://frozen-in-flames.github.io/frozen-in-flames-studio/): the full studio, running on GitHub Pages.
 - [Frozen In Flames Studio](https://huggingface.co/spaces/AriesHilton/frozen-in-flames-studio): the full studio, running as a Hugging Face Space.
 
 A browser-based music studio built with TypeScript, Vite, native Web Audio, and
@@ -32,6 +33,13 @@ hand-written CSS. Zero runtime dependencies.
 - **MIDI** — import Standard MIDI Files (Type 0/1, running status, tempo maps) and
   play them through the marxophone; export the 808 sweep as real MIDI
   (CC74 automation) or a demo bass line.
+- **Contract bundle export** — alongside the default format 0 export, the
+  Studio can export a fif-smf-1 contract bundle (`exportContractBundle` in
+  `src/audio/midi.ts`): a format 1 file with a dedicated conductor track
+  named "Tempo" carrying the tempo map (0x51) and time signature (0x58)
+  at tick 0, one named track per part, drums on channel index 9, and a
+  `sidecar.json` manifest (contract id, tempo map, meter, provenance,
+  and `ears_report`, null when no fif-ears report was run).
 - **Export** — render the full-mix demo offline faster than real time and download
   a 32-bit float WAV (peak-normalized with a silence guard).
 - **Visual field** — procedural bilateral-mirror field with RGB channel
@@ -66,7 +74,7 @@ src/
   ui/           # keybed, panel808, mixerview, panels (transport + MIDI/export)
   visuals.ts    # analyser-reactive visual field (pure helpers + renderer)
   main.ts       # bootstrap: audio init on user gesture, tab wiring
-tests/          # 100 vitest tests covering the audio/logic layer
+tests/          # 116 vitest tests covering the audio/logic layer
 ```
 
 The UI layer imports only from `src/audio/*` and `src/visuals.ts`.

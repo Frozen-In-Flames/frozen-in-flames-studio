@@ -67,6 +67,8 @@ export interface ParsedMidi {
   events: MidiEvent[];
   /** Tempo map in tick order; always starts at tick 0. */
   tempoMap: TempoChange[];
+  /** Track name meta (0x03) per track, in file order; null when unnamed. */
+  trackNames: (string | null)[];
 }
 
 export const DEFAULT_MICROS_PER_QUARTER = 500000; // 120 BPM
@@ -126,11 +128,13 @@ function chunkTag(data: Uint8Array, offset: number): string {
 interface TrackParse {
   events: MidiEvent[];
   tempos: TempoChange[];
+  trackName: string | null;
 }
 
 function parseTrack(data: Uint8Array, start: number, length: number): TrackParse {
   const events: MidiEvent[] = [];
   const tempos: TempoChange[] = [];
+  let trackName: string | null = null;
   const end = start + length;
   let offset = start;
   let tick = 0;
@@ -161,7 +165,10 @@ function parseTrack(data: Uint8Array, start: number, length: number): TrackParse
         const micros = (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
         tempos.push({ tick, microsPerQuarter: micros });
       }
-      // Other meta events (track name, time signature, end of track, ...) are skipped.
+      if (metaType === 0x03 && trackName === null) {
+        trackName = String.fromCharCode(...data.subarray(offset, offset + lenInfo.value));
+      }
+      // Other meta events (time signature, end of track, ...) are skipped.
       offset += lenInfo.value;
     } else if (status === 0xf0 || status === 0xf7) {
       // SysEx: length-delimited, skipped.
@@ -202,7 +209,7 @@ function parseTrack(data: Uint8Array, start: number, length: number): TrackParse
     }
   }
 
-  return { events, tempos };
+  return { events, tempos, trackName };
 }
 
 /**
@@ -224,6 +231,7 @@ export function parseMidiFile(bytes: Uint8Array): ParsedMidi {
   let offset = 8 + headerLen;
   const allEvents: MidiEvent[] = [];
   const allTempos: TempoChange[] = [];
+  const trackNames: (string | null)[] = [];
   for (let t = 0; t < trackCount; t++) {
     if (offset + 8 > bytes.length) throw new Error('Truncated MTrk header');
     if (chunkTag(bytes, offset) !== 'MTrk') throw new Error('Missing MTrk header');
@@ -231,6 +239,7 @@ export function parseMidiFile(bytes: Uint8Array): ParsedMidi {
     const parsed = parseTrack(bytes, offset + 8, trackLen);
     allEvents.push(...parsed.events);
     allTempos.push(...parsed.tempos);
+    trackNames.push(parsed.trackName);
     offset += 8 + trackLen;
   }
 
@@ -239,7 +248,7 @@ export function parseMidiFile(bytes: Uint8Array): ParsedMidi {
   for (const ev of allEvents) {
     ev.seconds = ticksToSeconds(ev.tick, ppq, tempoMap);
   }
-  return { ppq, events: allEvents, tempoMap };
+  return { ppq, events: allEvents, tempoMap, trackNames };
 }
 
 function buildTempoMap(tempos: TempoChange[]): TempoChange[] {
@@ -331,4 +340,219 @@ export function writeMidiFile(
     track.length & 0xff,
   ];
   return new Uint8Array([...header, ...track]);
+}
+
+/* ------------------------------------------------------------------ */
+/* fif-smf-1 contract export (D1)                                      */
+/*                                                                     */
+/* The default export above stays format 0. A contract bundle expands  */
+/* to format 1 at bundle time: a dedicated conductor track named       */
+/* "Tempo" carrying 0x51 tempo and 0x58 time signature at tick 0, one  */
+/* named track per part, channel index 9 reserved for GM drums, plus   */
+/* a sidecar.json manifest.                                            */
+/* ------------------------------------------------------------------ */
+
+export const FIF_SMF_CONTRACT_ID = 'fif-smf-1';
+export const DRUM_CHANNEL = 9;
+
+export interface ContractPart {
+  /** Track name, written as meta 0x03 at tick 0. */
+  name: string;
+  /** The single channel this part plays on. Drum parts are forced to 9. */
+  channel: number;
+  /** True for a General MIDI drum part (channel index 9). */
+  drums?: boolean;
+  events: MidiEvent[];
+}
+
+export interface ContractTimeSignature {
+  numerator: number;
+  /** Denominator as a note value: 4 means a quarter note. */
+  denominator: number;
+}
+
+export interface ContractExportOptions {
+  /** Division of the contract file. The contract fixes this at 480. */
+  ppq?: number;
+  /** Full tempo map for the conductor. Defaults to a single tempo. */
+  tempoMap?: TempoChange[];
+  /** Single tempo used when tempoMap is not given. */
+  microsPerQuarter?: number;
+  /** Meter for the 0x58 meta and the sidecar. Default 4/4. */
+  timeSignature?: ContractTimeSignature;
+}
+
+export interface ContractBundleOptions extends ContractExportOptions {
+  /** File name the sidecar points at. Default "score.mid". */
+  midiFileName?: string;
+  /** Provenance tool name. Default "frozen-in-flames-studio". */
+  tool?: string;
+  /** Provenance tool version. Default "1.0.0". */
+  version?: string;
+  /** Path of a fif-ears report run on the bundle, or null. Default null. */
+  earsReport?: string | null;
+}
+
+export interface ContractSidecar {
+  contract: typeof FIF_SMF_CONTRACT_ID;
+  midi: string;
+  tempo_bpm: number;
+  tempo_map: { tick: number; bpm: number }[];
+  meter: string;
+  ears_report: string | null;
+  provenance: { tool: string; version: string };
+}
+
+export interface ContractBundle {
+  midi: Uint8Array<ArrayBuffer>;
+  sidecar: ContractSidecar;
+  /** sidecar serialized for writing next to the .mid as sidecar.json. */
+  sidecarJson: string;
+}
+
+const microsToBpm = (micros: number): number =>
+  Math.round((60000000 / micros) * 1000) / 1000;
+
+function normalizeContractTempoMap(options: ContractExportOptions): TempoChange[] {
+  const fallback = options.microsPerQuarter ?? DEFAULT_MICROS_PER_QUARTER;
+  const sorted = [...(options.tempoMap ?? [])].sort((a, b) => a.tick - b.tick);
+  if (sorted.length === 0) return [{ tick: 0, microsPerQuarter: fallback }];
+  if (sorted[0].tick > 0) sorted.unshift({ tick: 0, microsPerQuarter: fallback });
+  return sorted;
+}
+
+interface OrderedBytes { tick: number; order: number; bytes: number[] }
+
+function buildContractTrack(events: OrderedBytes[]): number[] {
+  const sorted = [...events].sort((a, b) => a.tick - b.tick || a.order - b.order);
+  const out: number[] = [];
+  let lastTick = 0;
+  for (const ev of sorted) {
+    out.push(...writeVLQ(ev.tick - lastTick), ...ev.bytes);
+    lastTick = ev.tick;
+  }
+  out.push(0x00, 0xff, 0x2f, 0x00); // end of track
+  return out;
+}
+
+function trackChunk(track: number[]): number[] {
+  return [
+    0x4d, 0x54, 0x72, 0x6b, // MTrk
+    (track.length >>> 24) & 0xff,
+    (track.length >>> 16) & 0xff,
+    (track.length >>> 8) & 0xff,
+    track.length & 0xff,
+    ...track,
+  ];
+}
+
+function nameMeta(name: string): number[] {
+  const bytes = [...name].map((c) => c.charCodeAt(0) & 0xff);
+  return [0xff, 0x03, ...writeVLQ(bytes.length), ...bytes];
+}
+
+function eventBytes(ev: MidiEvent, channel: number): number[] {
+  switch (ev.kind) {
+    case 'noteOn':
+      return [0x90 | channel, ev.note & 0x7f, ev.velocity & 0x7f];
+    case 'noteOff':
+      return [0x80 | channel, ev.note & 0x7f, ev.velocity & 0x7f];
+    case 'cc':
+      return [0xb0 | channel, ev.controller & 0x7f, ev.value & 0x7f];
+    case 'program':
+      return [0xc0 | channel, ev.program & 0x7f];
+    case 'pitchBend':
+      return [0xe0 | channel, ev.value & 0x7f, (ev.value >> 7) & 0x7f];
+  }
+}
+
+/**
+ * Write a fif-smf-1 contract file: SMF format 1, one conductor track
+ * named "Tempo" (0x51 tempo map and 0x58 time signature at tick 0),
+ * then one track per part, each named at tick 0. Drum parts are written
+ * on channel index 9; a melodic part on channel index 9 is an error,
+ * as is a part whose events span more than one channel.
+ */
+export function writeContractMidiFile(
+  parts: ContractPart[],
+  options: ContractExportOptions = {},
+): Uint8Array<ArrayBuffer> {
+  const ppq = options.ppq ?? 480;
+  const meter = options.timeSignature ?? { numerator: 4, denominator: 4 };
+  const tempoMap = normalizeContractTempoMap(options);
+
+  const conductor: OrderedBytes[] = [
+    { tick: 0, order: -3, bytes: nameMeta('Tempo') },
+    {
+      tick: 0, order: -2,
+      bytes: [0xff, 0x58, 0x04, meter.numerator & 0xff, Math.round(Math.log2(meter.denominator)) & 0xff, 24, 8],
+    },
+  ];
+  tempoMap.forEach((t, i) => {
+    conductor.push({
+      tick: t.tick, order: -1 + i * 0.001,
+      bytes: [0xff, 0x51, 0x03, (t.microsPerQuarter >> 16) & 0xff, (t.microsPerQuarter >> 8) & 0xff, t.microsPerQuarter & 0xff],
+    });
+  });
+
+  const tracks: number[][] = [trackChunk(buildContractTrack(conductor))];
+  for (const part of parts) {
+    const channel = part.drums ? DRUM_CHANNEL : part.channel & 0x0f;
+    if (!part.drums && channel === DRUM_CHANNEL) {
+      throw new Error(`fif-smf-1: melodic part "${part.name}" may not use drum channel 9`);
+    }
+    const events: OrderedBytes[] = [{ tick: 0, order: -1, bytes: nameMeta(part.name) }];
+    for (const ev of part.events) {
+      if (!part.drums && ev.channel !== part.channel) {
+        throw new Error(`fif-smf-1: part "${part.name}" spans more than one channel`);
+      }
+      events.push({ tick: ev.tick, order: 0, bytes: eventBytes(ev, channel) });
+    }
+    tracks.push(trackChunk(buildContractTrack(events)));
+  }
+
+  const header: number[] = [
+    0x4d, 0x54, 0x68, 0x64, // MThd
+    0x00, 0x00, 0x00, 0x06, // header length 6
+    0x00, 0x01, // format 1
+    (tracks.length >> 8) & 0xff, tracks.length & 0xff,
+    (ppq >> 8) & 0xff, ppq & 0xff,
+  ];
+  return new Uint8Array([...header, ...tracks.flat()]);
+}
+
+/** Build the fif-smf-1 sidecar manifest for a contract bundle. */
+export function buildContractSidecar(options: ContractBundleOptions = {}): ContractSidecar {
+  const tempoMap = normalizeContractTempoMap(options);
+  const meter = options.timeSignature ?? { numerator: 4, denominator: 4 };
+  return {
+    contract: FIF_SMF_CONTRACT_ID,
+    midi: options.midiFileName ?? 'score.mid',
+    tempo_bpm: microsToBpm(tempoMap[0].microsPerQuarter),
+    tempo_map: tempoMap.map((t) => ({ tick: t.tick, bpm: microsToBpm(t.microsPerQuarter) })),
+    meter: `${meter.numerator}/${meter.denominator}`,
+    ears_report: options.earsReport ?? null,
+    provenance: {
+      tool: options.tool ?? 'frozen-in-flames-studio',
+      version: options.version ?? '1.0.0',
+    },
+  };
+}
+
+/**
+ * Export a contract bundle: the format 1 contract .mid bytes plus the
+ * sidecar manifest (object form and JSON text for sidecar.json). The
+ * existing format 0 export (writeMidiFile) is untouched and remains
+ * the default single file export.
+ */
+export function exportContractBundle(
+  parts: ContractPart[],
+  options: ContractBundleOptions = {},
+): ContractBundle {
+  const sidecar = buildContractSidecar(options);
+  return {
+    midi: writeContractMidiFile(parts, options),
+    sidecar,
+    sidecarJson: JSON.stringify(sidecar, null, 2),
+  };
 }
